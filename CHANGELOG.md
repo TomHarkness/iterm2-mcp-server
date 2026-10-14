@@ -1,3 +1,19 @@
+# Changelog
+
+## v0.2.0 — 2026-10-14
+
+Efficiency and safety pass, driven by usage analysis of ~990 tool calls (reads were ~80% of tool-output tokens; a quarter of re-reads were mostly already-seen output; output was usually read ~3 s after execute, then polled).
+
+- **Sessions targeted by ID** (since v0.1.x; docs updated). The terminal Claude runs in is detected and refused.
+- **`execute_command` waits** for a prompt / settled output and returns the new output directly, with status and duration.
+- **Delta reads:** `read_session_output` defaults to `mode: "new"`. `contents` includes scrollback, so long output isn't lost.
+- **Lean output:** plain text instead of pretty JSON; blank runs collapsed; `max_chars` cap keeps newest; `grep` filter.
+- **Safety:** refuses to stage on top of a pending command (`replace: true` to override); refuses multi-line and control-character commands (newlines would execute immediately); `execute_command` with nothing staged no longer sends a bare Enter.
+- **Fixes:** commands containing `'` broke AppleScript (double shell-escaping) — osascript now runs via `execFile` with no shell. Error messages no longer blame automation permissions for every failure. `list_iterm_sessions` parsing no longer breaks on commas in session names.
+- `tools/smoke-test.mjs` (end-to-end test in a scratch tab) and `tools/usage*.py` (usage analysis from Claude Code transcripts).
+
+---
+
 # 🎉 iTerm2 MCP Server - Updated & Fixed!
 
 ## What's New in v2

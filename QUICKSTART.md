@@ -102,9 +102,7 @@ I can see your home directory contains...
 
 ## Current Limitations
 
-**Single Session:** Commands go to the currently focused iTerm2 session only. Switch to the session you want to use before asking Claude to run commands.
-
-**Why?** macOS automation permissions make multi-session targeting difficult. This is the most reliable approach.
+**Session targeting:** Claude lists sessions and targets one by ID, so it can work in any pane without you switching focus. It refuses the pane Claude itself runs in.
 
 ## Tips
 

@@ -8,12 +8,15 @@ An MCP (Model Context Protocol) server that lets Claude interact with your iTerm
 - 📝 **Propose commands** - Claude types commands but waits for your approval
 - ✅ **Execute on approval** - You explicitly approve each command before it runs
 - 👀 **Read output** - Claude can see command results to help debug or continue
+- ⚡ **Run and wait** - Executing returns just the new output once the command finishes (no polling)
+- 🪶 **Token-lean** - Reads return only output Claude hasn't seen yet, capped, optionally grep-filtered
+- 🎯 **Targets sessions by ID** - Work in any pane; refuses the pane Claude itself runs in
 - 🆕 **Create new tabs** - Spin up fresh terminal sessions as needed
 - 🌐 **Works with SSH** - Control remote sessions just like local ones
 
 ## How It Works
 
-1. **You chat with Claude** in the Claude desktop app (or claude.ai)
+1. **You chat with Claude** in Claude Code or the Claude desktop app
 2. **Claude proposes a command** - It gets typed in your terminal but doesn't execute
 3. **You review it** - See the actual command in your terminal window
 4. **You approve or reject** - Tell Claude to proceed or cancel
@@ -26,7 +29,7 @@ An MCP (Model Context Protocol) server that lets Claude interact with your iTerm
 - **macOS** (tested on macOS 10.15+)
 - **iTerm2** installed
 - **Node.js 18+** (required for MCP SDK)
-- **Claude Desktop** app
+- **Claude Code** and/or **Claude Desktop**
 
 ### Quick Install
 
@@ -87,6 +90,12 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 - The node path with YOUR actual path from step 2
 - The index.js path with the absolute path to where you installed this
 
+#### 3b. Or add to Claude Code
+
+```bash
+claude mcp add --scope user iterm2 -- "$(which node)" /absolute/path/to/iterm2-mcp-server/index.js
+```
+
 #### 4. Set Up iTerm2 Automation (One-Time)
 
 **IMPORTANT:** To grant initial permissions, you need to temporarily allow automation:
@@ -137,23 +146,24 @@ You: "Go ahead"
 Claude: [connects, then proposes: systemctl status nginx]
 ```
 
-## Current Limitations
+## Tools
 
-### Single Session Support
+| Tool | What it does |
+|---|---|
+| `list_iterm_sessions` | One line per session: `id \| tty \| window/tab \| name`. Marks Claude's own terminal and any staged command. |
+| `propose_command` | Types a single-line command into a session **without** pressing Enter. Refuses if a command is already staged there (unless `replace: true`), refuses multi-line commands (each newline would press Enter), and refuses Claude's own terminal. |
+| `execute_command` | Presses Enter on the staged command, then (by default) waits until a prompt returns or output settles and returns only the new output: `Ran (prompt, 1.2s): …`. Options: `wait`, `timeout_s`, `settle_ms`, `prompt_regex`, `grep`, `max_chars`. |
+| `read_session_output` | `mode: "new"` (default) returns only lines not yet returned for that session; `mode: "tail"` returns the last `lines`. Supports `grep` and `max_chars` (default 6000, newest kept). |
+| `clear_proposed_command` | Clears the staged line (Ctrl-U). |
+| `create_new_tab` | Opens a tab and returns its session ID. |
 
-Currently, the server can only interact with the **current/active iTerm2 session**. While it can list all sessions, commands are sent to whichever session is currently focused.
+`session_id` is optional after the first call; it defaults to the last session used.
 
-**Why?** macOS automation permissions make it difficult to access sessions by ID. We use `current session of current window` which works reliably but only targets the active session.
+## Limitations
 
-**Workaround:** Switch to the terminal tab you want Claude to use before asking it to run commands.
-
-### Known Issues
-
-1. **Emoji in commands** - Special characters like emojis can cause quoting issues. Stick to standard ASCII for best results.
-
-2. **Multi-line commands** - Commands spanning multiple lines may not work correctly. Keep commands on a single line.
-
-3. **Session switching** - Can't target specific sessions by name/ID yet. Must manually focus the session you want to use.
+- **Multi-line commands** are refused by design. Join with `;`/`&&`, or write a script file and run that.
+- **Prompt detection** is heuristic (ends in `$ # % > ❯ -->`, `--More--`, `Password:`, `?`; right-aligned prompt segments are ignored). If it doesn't match your prompt, output is returned once it stops changing (`settle_ms`), or pass `prompt_regex`.
+- **Staged-command tracking** lives in the server process; if you run or clear a staged command by hand, the next propose notices the line changed and carries on.
 
 ## Security
 
@@ -202,12 +212,11 @@ which node  # Use this full path in claude_desktop_config.json
 
 ### Commands don't appear in terminal
 
-**Problem:** Wrong session focused or permissions  
+**Problem:** Wrong session ID or permissions  
 **Solution:**
 
-- Make sure the iTerm2 window is visible and focused
-- Check that the session you're looking at is active
-- Try clicking in the terminal to focus it
+- Ask Claude to run `list_iterm_sessions` again (IDs change when panes are closed/reopened)
+- "Session not found" means the ID is stale; "Not permitted" means Automation permission
 
 ### "Server disconnected" in logs
 
@@ -231,8 +240,8 @@ which node  # Use this full path in claude_desktop_config.json
 
 ```
 ┌─────────────────┐
+│  Claude Code /  │  
 │  Claude Desktop │  
-│   or claude.ai  │  
 └────────┬────────┘
          │ MCP Protocol
          │ (JSON-RPC over stdio)
@@ -242,7 +251,7 @@ which node  # Use this full path in claude_desktop_config.json
 │  (Node.js)      │  
 └────────┬────────┘
          │ AppleScript
-         │ (current session only)
+         │ (session by ID)
          ▼
 ┌─────────────────┐
 │    iTerm2       │  
@@ -258,8 +267,8 @@ which node  # Use this full path in claude_desktop_config.json
 # Check if iTerm2 can be controlled
 osascript -e 'tell application "iTerm2" to get version'
 
-# Test writing to current session
-osascript -e 'tell application "iTerm2" to tell current session of current window to write text "test" without newline'
+# End-to-end test: opens a scratch tab, runs echo/seq through the server, closes it
+npm test
 ```
 
 ### Logs
@@ -271,9 +280,9 @@ tail -f ~/Library/Logs/Claude/mcp-server-iterm2.log
 
 ### Future Improvements
 
-- [ ] Multi-session support (target specific sessions by name/ID)
-- [ ] Better emoji/special character handling
-- [ ] Multi-line command support
+- [x] Multi-session support (target sessions by ID) — v0.2.0
+- [x] Quote/special character handling — v0.2.0
+- [ ] Multi-line commands (needs a staging approach that doesn't press Enter per line)
 - [ ] Command history tracking
 - [ ] Integration with tmux/screen
 - [ ] Python API integration for better reliability
@@ -282,9 +291,8 @@ tail -f ~/Library/Logs/Claude/mcp-server-iterm2.log
 
 Improvements welcome! Key areas:
 
-- Fixing session targeting by ID
-- Better AppleScript error handling  
-- Multi-line command support
+- Safe multi-line staging
+- Prompt detection for more shells/devices
 - Tests and documentation
 
 ## License
