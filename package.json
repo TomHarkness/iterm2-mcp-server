@@ -1,0 +1,19 @@
+{
+  "name": "iterm2-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for controlling iTerm2 with approval workflow",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "iterm2-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
