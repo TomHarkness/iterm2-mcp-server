@@ -99,6 +99,7 @@ class ITerm2Server {
     const out = await this.osascript(`
       tell application "iTerm2"
         set rowList to {}
+        set sep to character id 9 -- bare "tab" means iTerm's tab class inside this tell
         set w to 0
         repeat with aWindow in windows
           set w to w + 1
@@ -106,7 +107,7 @@ class ITerm2Server {
           repeat with aTab in tabs of aWindow
             set t to t + 1
             repeat with aSession in sessions of aTab
-              set end of rowList to (id of aSession) & tab & (tty of aSession) & tab & w & "/" & t & tab & (name of aSession)
+              set end of rowList to (id of aSession) & sep & (tty of aSession) & sep & w & "/" & t & sep & (name of aSession)
             end repeat
           end repeat
         end repeat

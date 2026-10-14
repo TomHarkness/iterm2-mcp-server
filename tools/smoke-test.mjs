@@ -29,7 +29,8 @@ check("create_new_tab returns session id", !!sid, r.text);
 await sleep(2500); // let the shell print its prompt
 try {
   r = await call("list_iterm_sessions");
-  check("list includes scratch session", r.text.includes(sid), r.text);
+  const row = r.text.split("\n").find((l) => l.startsWith(sid)) || "";
+  check("list row is 'id | /dev/tty | wN/N | name'", /^\S+ \| \/dev\/ttys\d+ \| w\d+\/\d+ \| \S/.test(row), r.text);
 
   r = await call("propose_command", { session_id: sid, command: `printf '%s\\n' "it's \\"q\\" \\\\ ok"`, description: "quote test" });
   check("propose with ' \" \\ succeeds", !r.err, r.text);
